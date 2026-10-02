@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sneaker Drop</title>
+<style>
+  :root { --paper: #e9eae6; --ink: #000; --mute: #5f615c; --rule: #c4c6c0; --blue: #1d35e8; --red: #d7261e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  main { max-width: 34rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  h1 { margin: 0; font-size: clamp(2.4rem, 8vw, 3.6rem); font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+  h2 { margin: 0 0 .25rem; font-size: 1.125rem; font-weight: 600; }
+  p { margin: 0 0 .75rem; }
+  .live { color: var(--mute); font-size: .875rem; white-space: nowrap; }
+  .live::before { content: ""; display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; background: var(--rule); margin-right: .4rem; vertical-align: middle; }
+  .live.on::before { background: var(--blue); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .lede { color: var(--mute); margin: .75rem 0 2rem; max-width: 28rem; }
+  .tiles { display: grid; grid-template-columns: repeat(10, 1fr); gap: .4rem; max-width: 22rem; }
+  .tiles i { display: block; aspect-ratio: 1; border: 2px solid var(--ink); background: #fff; transition: background .3s; }
+  .tiles .held, .legend .held::before { background: repeating-linear-gradient(135deg, var(--blue) 0 3px, #fff 3px 7px); border-color: var(--blue); }
+  .tiles .sold, .legend .sold::before { background: var(--ink); }
+  .count { margin: 1rem 0 .25rem; font-size: 1.125rem; }
+  .count strong { font-size: 2.5rem; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; margin-right: .35rem; }
+  .legend { display: flex; gap: 1.25rem; color: var(--mute); font-size: .875rem; }
+  .legend span::before { content: ""; display: inline-block; width: .7rem; height: .7rem; border: 2px solid var(--ink); background: #fff; margin-right: .4rem; vertical-align: -1px; }
+  .you, .enter { margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid var(--rule); }
+  .who { color: var(--mute); }
+  .clock { font-size: clamp(4.5rem, 20vw, 7.5rem); font-weight: 800; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; margin: .25rem 0 .75rem; }
+  .clock.ending { color: var(--red); }
+  .bar { height: .6rem; background: #fff; border: 2px solid var(--ink); margin-bottom: 1rem; }
+  .bar div { height: 100%; background: var(--ink); transition: width .2s linear; }
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1.5rem; }
+  .btn { font: inherit; font-weight: 600; background: var(--ink); color: #fff; border: 2px solid var(--ink); padding: .8rem 1.25rem; cursor: pointer; }
+  .btn:hover { background: var(--blue); border-color: var(--blue); }
+  .text { font: inherit; background: none; border: 0; padding: .8rem 0; color: var(--mute); text-decoration: underline; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  label { display: block; font-weight: 600; margin-bottom: .5rem; }
+  input { display: block; font: inherit; width: 100%; max-width: 18rem; padding: .75rem; border: 2px solid var(--ink); background: #fff; margin-bottom: .75rem; }
+  .message { min-height: 1.5rem; margin-top: 1.5rem; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) { .live.on::before { animation: none; } .tiles i, .bar div { transition: none; } }
+</style>
+<body>
+<main>
+  <header>
+    <h1>Sneaker Drop</h1>
+    <p class="live" id="live">connecting</p>
+  </header>
+  <p class="lede" id="lede"></p>
+
+  <div class="tiles" id="tiles" aria-hidden="true"></div>
+  <p class="count"><strong id="left"></strong><span id="of"></span></p>
+  <p class="legend"><span>free</span><span class="held">on hold</span><span class="sold">sold</span></p>
+
+  <section class="you" id="you" hidden>
+    <p class="who" id="who"></p>
+    <div id="hold" hidden>
+      <h2>Your pair is on hold</h2>
+      <p class="clock" id="clock"></p>
+      <div class="bar"><div id="fill"></div></div>
+      <p id="paying" hidden>Payment started. Waiting for the payment provider to confirm it.</p>
+    </div>
+    <div id="line" hidden>
+      <h2>You are in the line</h2>
+      <p class="clock" id="place"></p>
+      <p id="ahead"></p>
+    </div>
+    <p class="actions">
+      <button class="btn" id="buy" hidden></button>
+      <button class="btn" id="join" hidden>Join the line</button>
+      <button class="btn" id="pay" hidden></button>
+      <button class="text" id="switch">Switch user</button>
+    </p>
+  </section>
+
+  <form class="enter" id="enter" hidden>
+    <label for="name">Your name</label>
+    <input id="name" autocomplete="off" maxlength="32" placeholder="alice">
+    <button class="btn">Enter the drop</button>
+  </form>
+
+  <p class="message" id="message" role="status"></p>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const messages = {
+    none_left: 'No pairs are free right now. Join the line to get the next one.',
+    already_holding: 'You already hold a pair. Pay for it first.',
+    limit_reached: 'You already have 2 pairs, the most one person can buy.',
+    already_in_line: 'You are already in the line.',
+    pairs_left: 'Pairs are still free, click Buy.',
+    sold_out: 'Sold out.',
+    no_hold: 'You have no pair on hold to pay for.',
+    name_required: 'A name is 1 to 32 characters: a-z, 0-9, - or _.',
+  };
+  const money = (cents) => `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
+  const span = (s) => (s % 60 ? `${s} seconds` : `${s / 60} minute${s === 60 ? '' : 's'}`);
+  const pairs = (n) => `${n} pair${n === 1 ? '' : 's'}`;
+  let user = sessionStorage.getItem('user');
+  let status = null;
+  let offset = 0;
+  let source;
+  let timer;
+
+  const show = (text) => {
+    $('message').textContent = text;
+    clearTimeout(timer);
+    timer = setTimeout(() => { $('message').textContent = ''; }, 5000);
+  };
+
+  function setUser(name) {
+    user = name;
+    if (name) sessionStorage.setItem('user', name);
+    else sessionStorage.removeItem('user');
+    show('');
+    connect();
+  }
+
+  function connect() {
+    source?.close();
+    source = new EventSource(user ? `/api/events?user=${encodeURIComponent(user)}` : '/api/events');
+    source.onopen = () => { $('live').textContent = 'live'; $('live').classList.add('on'); };
+    source.onerror = () => { $('live').textContent = 'reconnecting'; $('live').classList.remove('on'); };
+    source.onmessage = (event) => {
+      const before = status?.user;
+      status = JSON.parse(event.data);
+      // The countdown runs on the server's clock, so a wrong clock in the browser does not change it.
+      offset = Date.now() - status.now;
+      if (before && before.name === status.user?.name) announce(before, status.user);
+      render();
+    };
+  }
+
+  function announce(before, after) {
+    if (after.bought > before.bought) show(after.bought < 2 ? 'Paid. The pair is yours, and you can buy one more.' : 'Paid. Both pairs are yours.');
+    else if (before.hold && !after.hold) show('Your time ran out and the pair was released.');
+    else if (!before.hold && after.hold && before.linePosition) show('Your turn: a pair is on hold for you.');
+  }
+
+  async function call(path) {
+    const res = await fetch(path, { method: 'POST', headers: { 'x-user': user } });
+    const body = await res.json();
+    if (res.status === 401) setUser(null);
+    if (!res.ok) show(messages[body.error] ?? 'Something went wrong, please try again.');
+    return res.ok ? body : null;
+  }
+
+  function render() {
+    const s = status;
+    const me = s.user;
+    $('enter').hidden = Boolean(user);
+    $('you').hidden = !user;
+    $('lede').textContent = `${s.total} pairs. Once a pair is yours you have ${span(s.holdSeconds)} to pay.`;
+    const tiles = $('tiles');
+    if (tiles.childElementCount !== s.total) tiles.replaceChildren(...Array.from({ length: s.total }, () => document.createElement('i')));
+    [...tiles.children].forEach((tile, i) => { tile.className = i < s.sold ? 'sold' : i < s.sold + s.held ? 'held' : ''; });
+    $('left').textContent = s.soldOut ? 'Sold out' : s.left;
+    $('of').textContent = s.soldOut ? '' : `of ${s.total} left`;
+    if (!me) return;
+    $('who').textContent = `You are ${me.name}. ${me.bought ? `You own ${pairs(me.bought)}${me.bought >= 2 ? ', the most one person can buy' : ''}.` : 'Nothing bought yet.'}`;
+    $('hold').hidden = !me.hold;
+    $('paying').hidden = !me.hold?.paying;
+    $('line').hidden = me.linePosition === null;
+    if (me.linePosition !== null) {
+      $('place').textContent = `#${me.linePosition}`;
+      $('ahead').textContent = me.linePosition === 1
+        ? `You are next. The first pair that frees up is yours, with ${span(s.holdSeconds)} to pay.`
+        : `${me.linePosition - 1} ${me.linePosition === 2 ? 'person' : 'people'} ahead of you. Every pair that frees up goes to the front of the line.`;
+    }
+    const canAct = !s.soldOut && !me.hold && me.linePosition === null && me.bought < 2;
+    $('buy').hidden = !canAct || s.left === 0;
+    $('buy').textContent = `Buy ${me.bought ? 'a second' : 'a'} pair for ${money(s.price)}`;
+    $('join').hidden = !canAct || s.left > 0;
+    $('pay').hidden = !me.hold;
+    $('pay').textContent = me.hold?.paying ? 'Open the checkout again' : `Pay ${money(s.price)}`;
+    tick();
+  }
+
+  function tick() {
+    const hold = status?.user?.hold;
+    if (!hold) return;
+    const ms = Math.max(0, Date.parse(hold.expiresAt) - (Date.now() - offset));
+    const seconds = Math.ceil(ms / 1000);
+    $('clock').textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    $('clock').classList.toggle('ending', seconds * 5 <= status.holdSeconds);
+    $('fill').style.width = `${(ms / (status.holdSeconds * 1000)) * 100}%`;
+  }
+
+  $('enter').onsubmit = (event) => {
+    event.preventDefault();
+    const name = $('name').value.trim().toLowerCase();
+    if (!/^[a-z0-9_-]{1,32}$/.test(name)) return show(messages.name_required);
+    setUser(name);
+  };
+  $('switch').onclick = () => setUser(null);
+  $('buy').onclick = () => call('/api/buy');
+  $('join').onclick = () => call('/api/line');
+  $('pay').onclick = async () => {
+    const body = await call('/api/checkout');
+    if (body) location.href = body.url;
+  };
+  connect();
+  setInterval(tick, 200);
+</script>
