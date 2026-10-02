@@ -1,0 +1,47 @@
+services:
+  mongo:
+    image: mongo:8.2
+    attach: false
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 2s
+      retries: 30
+
+  app:
+    build: .
+    init: true
+    command: node src/app/server.ts
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}"
+    environment:
+      APP_PORT: ${APP_PORT:-3000}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:3000}
+      MONGO_URL: mongodb://mongo:27017/sneakdrop
+      PAYMENTS_URL: http://payments:${PAYMENTS_PORT:-4000}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?copy .env.example to .env}
+      PAYMENTS_API_KEY: ${PAYMENTS_API_KEY:?copy .env.example to .env}
+      STOCK: ${STOCK:-20}
+      HOLD_SECONDS: ${HOLD_SECONDS:-300}
+      PRICE_CENTS: ${PRICE_CENTS:-15000}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  payments:
+    build: .
+    init: true
+    command: node src/payments/server.ts
+    ports:
+      - "127.0.0.1:${PAYMENTS_PORT:-4000}:${PAYMENTS_PORT:-4000}"
+    environment:
+      PAYMENTS_PORT: ${PAYMENTS_PORT:-4000}
+      PAYMENTS_PUBLIC_URL: ${PAYMENTS_PUBLIC_URL:-http://localhost:4000}
+      PAYMENTS_MONGO_URL: mongodb://mongo:27017/payments
+      WEBHOOK_URL: http://app:${APP_PORT:-3000}/webhooks/payments
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?copy .env.example to .env}
+      PAYMENTS_API_KEY: ${PAYMENTS_API_KEY:?copy .env.example to .env}
+      WEBHOOK_MAX_DELAY_MS: ${WEBHOOK_MAX_DELAY_MS:-3000}
+      WEBHOOK_DUPLICATE_RATE: ${WEBHOOK_DUPLICATE_RATE:-0.3}
+    depends_on:
+      mongo:
+        condition: service_healthy

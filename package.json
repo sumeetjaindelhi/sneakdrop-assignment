@@ -1,0 +1,21 @@
+{
+  "name": "sneakdrop",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "STOCK=20 node --test",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "mongoose": "^9.10.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.0",
+    "typescript": "^7.0.2"
+  }
+}
